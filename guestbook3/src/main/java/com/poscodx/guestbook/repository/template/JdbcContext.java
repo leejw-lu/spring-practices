@@ -3,6 +3,7 @@ package com.poscodx.guestbook.repository.template;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.List;
 
 import javax.sql.DataSource;
 
@@ -13,8 +14,30 @@ public class JdbcContext {
 		this.dataSource=dataSource;
 	}
 	
+	public int executeUpdate(String sql) {
+		return executeUpdateWithStatementStrategy(new StatementStrategy() {
+			@Override
+			public PreparedStatement makeStatement(Connection connection) throws SQLException {
+				PreparedStatement pstmt=connection.prepareStatement(sql);
+				return pstmt;
+			}
+		});
+	}
 	
-	public int executeUpdate(StatementStrategy statementStrategy) {
+	public int executeUpdate(String sql, Object[] parameters) {
+		return executeUpdateWithStatementStrategy(new StatementStrategy() {
+			@Override
+			public PreparedStatement makeStatement(Connection connection) throws SQLException {
+				PreparedStatement pstmt=connection.prepareStatement(sql);
+				for (int i=0;i<parameters.length; i++) {
+					pstmt.setObject(i+1, parameters[i]);
+				}
+				return pstmt;
+			}
+		});
+	}
+	
+	private int executeUpdateWithStatementStrategy(StatementStrategy statementStrategy) {
 		int result = 0;
 		Connection conn=null;
 		PreparedStatement pstmt=null;
@@ -22,8 +45,6 @@ public class JdbcContext {
 	      try{
 	    	 conn = dataSource.getConnection();
 	    	 pstmt = statementStrategy.makeStatement(conn);
-	    			
-	    	 
 	         result = pstmt.executeUpdate();
 	         
 	      } catch (SQLException e) {
