@@ -2,10 +2,14 @@ package com.poscodx.guestbook.repository.template;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.sql.DataSource;
+
+import org.springframework.jdbc.core.RowMapper;
 
 public class JdbcContext {
 	private DataSource dataSource;
@@ -14,7 +18,52 @@ public class JdbcContext {
 		this.dataSource=dataSource;
 	}
 	
-	public int executeUpdate(String sql) {
+	public <T> List<T> query(String sql, RowMapper<T> rowMapper) {
+		return executeQueryWithStatementStrategy(new StatementStrategy() {
+			@Override
+			public PreparedStatement makeStatement(Connection connection) throws SQLException {
+				PreparedStatement pstmt=connection.prepareStatement(sql);
+				return pstmt;
+			}
+		}, rowMapper);
+	}
+	
+	private <E> List<E> executeQueryWithStatementStrategy(StatementStrategy statementStrategy,RowMapper<E> rowMapper) {
+		List<E> result=new ArrayList<>();
+		
+		Connection conn=null;
+		PreparedStatement pstmt=null;
+		ResultSet rs= null;
+	      
+	      try{
+	    	 conn = dataSource.getConnection();
+	    	 
+	    	 pstmt = statementStrategy.makeStatement(conn);
+	         rs = pstmt.executeQuery();
+	         while (rs.next()) {
+	        	 E e = rowMapper.mapRow(rs, rs.getRow());
+	        	 result.add(e);
+	         }
+	         
+	      } catch (SQLException e) {
+	         System.out.println("error:"+e);
+	      } finally {
+	    	  try {
+		    	  if (pstmt!=null) {
+		    		  pstmt.close();
+		    	  }
+		    	  if (conn !=null) {
+		    		  conn.close();
+		    	  }
+	    	  } catch(SQLException e) {
+	    		  System.out.println("error:"+e);
+	    	  }
+	      }
+	      
+	    return result;
+	}
+
+	public int update(String sql) {
 		return executeUpdateWithStatementStrategy(new StatementStrategy() {
 			@Override
 			public PreparedStatement makeStatement(Connection connection) throws SQLException {
@@ -24,7 +73,7 @@ public class JdbcContext {
 		});
 	}
 	
-	public int executeUpdate(String sql, Object[] parameters) {
+	public int update(String sql, Object[] parameters) {
 		return executeUpdateWithStatementStrategy(new StatementStrategy() {
 			@Override
 			public PreparedStatement makeStatement(Connection connection) throws SQLException {
@@ -64,4 +113,5 @@ public class JdbcContext {
 	      
 	      return result;
 	}
+
 }
